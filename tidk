@@ -1,0 +1,89 @@
+#! /usr/bin/python3
+
+import sys
+import os
+
+def print_help():
+    print()
+    print('Texas Instruments C Development Kit')
+    print('===================================')
+    print()
+    print('tidk init       => initialize a directory')
+    print('tidk build      => compile the project into a .8xp file')
+    print('tidk up         => update the C library')
+    print()
+
+def init():
+    if os.listdir('.'):
+        print('Working directory must be empty.')
+        return
+    
+    with open('main.c', 'w') as f:
+        f.writelines([
+            '\n',
+            '#include "ti/ti.h"\n'
+            '\n',
+            '\n',
+            'void main() {\n',
+            '\t\n',
+            '}\n'
+        ])
+    
+    os.system('git clone https://github.com/ticalcdk/lib.git --recursive')
+    os.rename('lib', 'ti')
+
+    os.mkdir('build')
+
+data_loc = {
+    '84+cse': '0x987C'
+}
+
+code_loc = {
+    '84+cse': '0xA60B'
+}
+
+header = {
+    '84+cse': 'EF69'
+}
+
+def build():
+
+    c_paths = []
+    for dir in os.walk('.'):
+        for path in dir[2]:
+            if path.endswith('.c'):
+                c_paths.append(dir[0] + '/' + path)
+    
+    with open('~tmp.c', 'w') as f:
+        for path in c_paths:
+            f.write('#include "' + path + '"\n')
+    
+    target = '84+cse'
+
+    # magic shell commands
+    # https://www.cemetech.net/forum/viewtopic.php?t=14061&start=0
+    os.system('sdcc -mz80 --no-std-crt0 --reserve-regs-iy --data-loc ' + data_loc[target] + ' --code-loc ' + code_loc[target] + ' ~tmp.c -o ~tmp.hex')
+    os.system('echo ' + header[target] + '$(cut -c 10- < ~tmp.hex | sed \'s/..$//\' | tr -d \'\n\') > ~tmp.hxs')
+    os.system('xxd -r -p < ~tmp.hxs > ~tmp.z80')
+    os.system('binpac8x ~tmp.z80 -O "PRGM"')
+    os.system('mv ~tmp.8xp prgm.8xp')
+    os.system('rm ~tmp.*')
+
+def up():
+    os.chdir('ti')
+    os.system('git pull')
+    os.chdir('..')
+
+args = sys.argv[1:]
+
+if len(args) == 0:
+    print_help()
+else:
+    if args[0] == 'init':
+        init()
+    elif args[0] == 'build':
+        build()
+    elif args[0] == 'up':
+        up()
+    else:
+        print('Unknown command \'' + args[0] + '\'')
